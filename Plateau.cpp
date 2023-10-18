@@ -1,5 +1,6 @@
 #include "Plateau.h"
 
+
 /// <summary>
 /// Le constructeur initialise la variable _plateau en fonction de la taille size.
 /// </summary>
@@ -176,4 +177,37 @@ bool Plateau::est_victorieux()
 	}
 
 	return _victoire;
+}
+
+void Plateau::initialise_affichageVTK()
+{
+
+	reader->SetFileName("C:\\Users\\Tristan\\Desktop\\UE_Librairies\\UE3.4_Projet_TR\\testing.jpg");
+	reader->Update();
+
+
+
+	vtkNew<vtkImageReslice> reslice;
+	reslice->SetInformationInput(reader->GetOutput());
+	reslice->SetOutputExtentToDefault();
+	reslice->Update();
+
+	imageActor->SetInputData(reslice->GetOutput());
+
+	renderer->SetBackground(.1, .2, .4);
+	renderer->AddActor(imageActor);
+
+
+	//Create Renderer Window
+	window->AddRenderer(renderer);
+	window->SetSize(800, 800);
+
+	//Create interactor
+	interactor->SetRenderWindow(window);
+
+	//Creator interactor specific image
+
+	interactor->SetInteractorStyle(styleInt);
+	interactor->Initialize();
+	interactor->Start();
 }

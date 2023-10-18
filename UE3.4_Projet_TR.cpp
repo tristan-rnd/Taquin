@@ -12,6 +12,7 @@ int main(int argc, char* argv[])
 	plateau.solution_from_randomise();
 	plateau.afficher();
 	plateau.est_victorieux();
+	plateau.initialise_affichageVTK();
 
 	return 0;
 }
