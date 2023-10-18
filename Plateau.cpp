@@ -128,13 +128,14 @@ void Plateau::randomise()
 	int r{ 0 };
 
 	char direction[4] = { 'z', 'd', 's', 'q' };
+	char direction_sol[4] = { 's', 'q', 'z', 'd' }; // retourne, pour chaque direction, la direction inverse = solution
 
 	for (int i{ 0 }; i < _nb_rand; ++i)
 	{
 		r = distribution(generator);
 		if (bouger(direction[r], true))
 		{
-			_chemin_solution[_nb_mouvement_to_solution] = direction[r];
+			_chemin_solution[_nb_mouvement_to_solution] = direction_sol[r];
 			_nb_mouvement_to_solution += 1;
 		}
 	}
@@ -148,21 +149,6 @@ void Plateau::solution_from_randomise()
 	for (int i{ _nb_mouvement_to_solution -1 }; i >= 0; --i)
 	{
 		char dir = _chemin_solution[i];
-		switch (dir)
-		{
-		case 'z':
-			dir = 's';
-			break;
-		case 'd':
-			dir = 'q';
-			break;
-		case 's':
-			dir = 'z';
-			break;
-		case 'q':
-			dir = 'd';
-			break;
-		}
 		bouger(dir,true);
 	}
 }
