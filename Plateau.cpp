@@ -182,31 +182,82 @@ bool Plateau::est_victorieux()
 void Plateau::initialise_affichageVTK()
 {
 
-	reader->SetFileName("C:\\Users\\Tristan\\Desktop\\UE_Librairies\\UE3.4_Projet_TR\\testing.jpg");
-	reader->Update();
+
+	using UCharPixelType = unsigned char;
+	using ImageType = itk::Image<UCharPixelType, 2>;
+	using UCharImageType = itk::Image<UCharPixelType, 2>;
+
+	using ReaderType = itk::ImageFileReader<UCharImageType>;
+	auto reader{ ReaderType::New() }; //Pointeur intelligent
+	reader->SetFileName("C:\\Users\\Tristan\\Desktop\\UE_Librairies\\UE3.4_Projet_TR\\testing.png");
+	auto image_input{ UCharImageType::New() };
+	image_input = reader->GetOutput();
+
+	
+	//std::vector<itk::Image<UCharPixelType, 2>> plateau_image(_size * _size);
+
+	using UCharImageVector = itk::Image<UCharPixelType, 3>;
+	auto plateau_image{ UCharImageVector::New()};
+
+	UCharImageType::RegionType region_input = image_input->GetLargestPossibleRegion();
+	UCharImageType::SizeType size_input = region_input.GetSize();
+	//std::cout << "L'image fait : " << size_input[0] << " par " << size_input[1] << '\n';
+
+	UCharImageVector::SizeType size_z{ size_input[0] / _size, size_input[1] / _size,_size* _size};
+	plateau_image->SetRegions(size_z);
+	plateau_image->Allocate();
+	plateau_image->FillBuffer(100);
 
 
+	//UCharImageVector::RegionType region_output = plateau_image->GetLargestPossibleRegion();
+	//UCharImageVector::SizeType size_output = region_output.GetSize();
+	//std::cout << "L'image fait : " << size_output[0] << " par " << size_output[1] <<  " par " << size_output[2] <<  '\n';
 
-	vtkNew<vtkImageReslice> reslice;
-	reslice->SetInformationInput(reader->GetOutput());
-	reslice->SetOutputExtentToDefault();
-	reslice->Update();
+	using ExtractFilterType = itk::ExtractImageFilter<UCharImageVector, UCharImageType>;
+	auto extractFilter{ ExtractFilterType::New() };
+	extractFilter->SetDirectionCollapseToSubmatrix();
+	extractFilter->SetInput(plateau_image);
 
-	imageActor->SetInputData(reslice->GetOutput());
+	// set up the extraction region [one slice]
+	UCharImageVector::RegionType inputRegion = plateau_image->GetLargestPossibleRegion();
+	UCharImageVector::SizeType size = inputRegion.GetSize();
+	size[2] = 1; // we extract along z direction
+	UCharImageVector::IndexType start = inputRegion.GetIndex();
+	start[2] = 5;
+	UCharImageVector::RegionType desiredRegion;
+	desiredRegion.SetSize(size);
+	desiredRegion.SetIndex(start);
 
+	extractFilter->SetExtractionRegion(desiredRegion);
+
+	//Create Actor
+	vtkNew<vtkImageActor> imageActor;
+
+	using ConversionFilterType = itk::ImageToVTKImageFilter<UCharImageType>;
+	auto conversionFilter{ ConversionFilterType::New() };
+	conversionFilter->SetInput(extractFilter->GetOutput());
+	conversionFilter->Update();
+
+	imageActor->SetInputData(conversionFilter->GetOutput());
+
+
+	//Create Renderer
+	vtkNew<vtkRenderer> renderer;
 	renderer->SetBackground(.1, .2, .4);
 	renderer->AddActor(imageActor);
 
 
 	//Create Renderer Window
+	vtkNew<vtkRenderWindow> window;
 	window->AddRenderer(renderer);
 	window->SetSize(800, 800);
 
 	//Create interactor
+	vtkNew<vtkRenderWindowInteractor> interactor;
 	interactor->SetRenderWindow(window);
 
 	//Creator interactor specific image
-
+	vtkNew<vtkInteractorStyleImage> styleInt;
 	interactor->SetInteractorStyle(styleInt);
 	interactor->Initialize();
 	interactor->Start();

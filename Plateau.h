@@ -2,15 +2,16 @@
 #include <vector>
 #include <iostream>
 #include <random>
+#include <itkImage.h>
+#include <itkImageFileReader.h>
+#include <itkExtractImageFilter.h>
+#include <itkImageToVTKImageFilter.h>
 #include <vtkSmartPointer.h>
-#include <vtkJPEGReader.h>
 #include <vtkImageActor.h>
 #include <vtkRenderer.h>
 #include <vtkRenderWindow.h>
 #include <vtkRenderWindowInteractor.h>
 #include <vtkInteractorStyleImage.h>
-#include <vtkImageData.h>
-#include <vtkImageReslice.h>
 
 class Plateau {
 private:
@@ -26,25 +27,6 @@ private:
 
 	bool _victoire{ false };
 
-	//Version abrégée
-	vtkNew<vtkJPEGReader> reader;
-
-	//Create Actor
-	vtkNew<vtkImageActor> imageActor;
-
-
-	//Create Renderer
-	vtkNew<vtkRenderer> renderer;
-
-
-	//Create Renderer Window
-	vtkNew<vtkRenderWindow> window;
-
-	//Create interactor
-	vtkNew<vtkRenderWindowInteractor> interactor;
-
-	//Creator interactor specific image
-	vtkNew<vtkInteractorStyleImage> styleInt;
 
 
 public:
