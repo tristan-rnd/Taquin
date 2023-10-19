@@ -1,17 +1,22 @@
 #pragma once
 #include <vector>
 #include <iostream>
+#include <string>
 #include <random>
 #include <itkImage.h>
 #include <itkImageFileReader.h>
 #include <itkExtractImageFilter.h>
 #include <itkImageToVTKImageFilter.h>
+#include <itkImageRegionIteratorWithIndex.h>
+#include <itkImageRegionConstIteratorWithIndex.h>
 #include <vtkSmartPointer.h>
 #include <vtkImageActor.h>
 #include <vtkRenderer.h>
 #include <vtkRenderWindow.h>
 #include <vtkRenderWindowInteractor.h>
 #include <vtkInteractorStyleImage.h>
+#include <itkImageFileWriter.h>
+#include <vtkImageFlip.h>
 
 class Plateau {
 private:

@@ -1,5 +1,24 @@
 #include "Plateau.h"
 
+class Observer : public vtkCommand {
+public:
+	static Observer* New()
+	{
+		return new Observer;
+	}
+	void SetPlateau(Plateau* plateau) {
+		_plateau = plateau;
+	}
+	void Execute(vtkObject*, unsigned long, void*);
+private:
+	Plateau* _plateau;
+};
+
+void Observer::Execute(vtkObject* caller, unsigned long, void*) {
+	auto* interactor{ vtkRenderWindowInteractor::SafeDownCast(caller) };
+	char key = interactor->GetKeyCode();
+	_plateau->bouger(key, true);
+}
 
 /// <summary>
 /// Le constructeur initialise la variable _plateau en fonction de la taille size.
@@ -11,7 +30,7 @@ _plateau_correct(size, std::vector<char>(size)), _size(size), _nb_rand(nb_rand),
 {
 	_posX = size-1;
 	_posY = size-1;
-	char k{ 1 };
+	char k{ 0 };
 	for (auto& i : _plateau)
 	{
 		for (auto& j : i)
@@ -20,9 +39,7 @@ _plateau_correct(size, std::vector<char>(size)), _size(size), _nb_rand(nb_rand),
 			++k;
 		}
 	}
-	_plateau[_posY][_posX] = 0;
-
-	k = 1;
+	k = 0;
 	for (auto& i : _plateau_correct)
 	{
 		for (auto& j : i)
@@ -31,7 +48,6 @@ _plateau_correct(size, std::vector<char>(size)), _size(size), _nb_rand(nb_rand),
 			++k;
 		}
 	}
-	_plateau_correct[_posY][_posX] = 0;
 }
 
 
@@ -71,8 +87,9 @@ bool Plateau::bouger(char direction, bool affiche)
 		{
 			_plateau[_posY][_posX] = _plateau[_posY][_posX+1];
 			_posX += 1;
-			_plateau[_posY][_posX] = 0;
+			_plateau[_posY][_posX] = _size*_size-1;
 			fait = true;
+			this->afficher();
 		}
 		break;
 	case 'z':
@@ -84,8 +101,9 @@ bool Plateau::bouger(char direction, bool affiche)
 		{
 			_plateau[_posY][_posX] = _plateau[_posY-1][_posX];
 			_posY += -1;
-			_plateau[_posY][_posX] = 0;
+			_plateau[_posY][_posX] = _size * _size-1;
 			fait = true;
+			this->afficher();
 		}
 		break;
 	case 'q':
@@ -97,8 +115,9 @@ bool Plateau::bouger(char direction, bool affiche)
 		{
 			_plateau[_posY][_posX] = _plateau[_posY][_posX-1];
 			_posX += -1;
-			_plateau[_posY][_posX] = 0;
+			_plateau[_posY][_posX] = _size * _size-1;
 			fait = true;
+			this->afficher();
 		}
 		break;
 	case 's':
@@ -110,8 +129,9 @@ bool Plateau::bouger(char direction, bool affiche)
 		{
 			_plateau[_posY][_posX] = _plateau[_posY + 1][_posX];
 			_posY += 1;
-			_plateau[_posY][_posX] = 0;
+			_plateau[_posY][_posX] = _size * _size-1;
 			fait = true;
+			this->afficher();
 		}
 		break;
 	}
@@ -192,30 +212,38 @@ void Plateau::initialise_affichageVTK()
 	reader->SetFileName("C:\\Users\\Tristan\\Desktop\\UE_Librairies\\UE3.4_Projet_TR\\testing.png");
 	auto image_input{ UCharImageType::New() };
 	image_input = reader->GetOutput();
-
+	image_input->Update();
 	
-	//std::vector<itk::Image<UCharPixelType, 2>> plateau_image(_size * _size);
 
 	using UCharImageVector = itk::Image<UCharPixelType, 3>;
 	auto plateau_image{ UCharImageVector::New()};
 
 	UCharImageType::RegionType region_input = image_input->GetLargestPossibleRegion();
 	UCharImageType::SizeType size_input = region_input.GetSize();
-	//std::cout << "L'image fait : " << size_input[0] << " par " << size_input[1] << '\n';
 
 	UCharImageVector::SizeType size_z{ size_input[0] / _size, size_input[1] / _size,_size* _size};
 	plateau_image->SetRegions(size_z);
 	plateau_image->Allocate();
-	plateau_image->FillBuffer(100);
+	plateau_image->FillBuffer(0);
 
+	for (int i{ 0 }; i < _size * _size; i++)
+	{
+		for (int j{ 0 }; j < size_z[0]; ++j)
+		{
+			for (int k{ 0 }; k < size_z[1]; ++k)
+			{
+				plateau_image->SetPixel({ j,k,i }, image_input->GetPixel({ j + (i % _size) * static_cast<int>(size_z[0]),k + static_cast<int>(size_z[1]) * (i / _size) }));
+			}
+		}
+	}
 
+	
 	//UCharImageVector::RegionType region_output = plateau_image->GetLargestPossibleRegion();
 	//UCharImageVector::SizeType size_output = region_output.GetSize();
 	//std::cout << "L'image fait : " << size_output[0] << " par " << size_output[1] <<  " par " << size_output[2] <<  '\n';
 
-	using ExtractFilterType = itk::ExtractImageFilter<UCharImageVector, UCharImageType>;
+	using ExtractFilterType = itk::ExtractImageFilter<UCharImageVector, UCharImageVector>;
 	auto extractFilter{ ExtractFilterType::New() };
-	extractFilter->SetDirectionCollapseToSubmatrix();
 	extractFilter->SetInput(plateau_image);
 
 	// set up the extraction region [one slice]
@@ -223,29 +251,64 @@ void Plateau::initialise_affichageVTK()
 	UCharImageVector::SizeType size = inputRegion.GetSize();
 	size[2] = 1; // we extract along z direction
 	UCharImageVector::IndexType start = inputRegion.GetIndex();
-	start[2] = 5;
 	UCharImageVector::RegionType desiredRegion;
 	desiredRegion.SetSize(size);
-	desiredRegion.SetIndex(start);
-
-	extractFilter->SetExtractionRegion(desiredRegion);
-
-	//Create Actor
-	vtkNew<vtkImageActor> imageActor;
-
-	using ConversionFilterType = itk::ImageToVTKImageFilter<UCharImageType>;
-	auto conversionFilter{ ConversionFilterType::New() };
-	conversionFilter->SetInput(extractFilter->GetOutput());
-	conversionFilter->Update();
-
-	imageActor->SetInputData(conversionFilter->GetOutput());
-
-
+	
 	//Create Renderer
 	vtkNew<vtkRenderer> renderer;
 	renderer->SetBackground(.1, .2, .4);
-	renderer->AddActor(imageActor);
 
+	using ConversionFilterType = itk::ImageToVTKImageFilter<UCharImageVector>;
+	auto conversionFilter{ ConversionFilterType::New() };
+
+	std::vector<vtkNew<vtkImageActor>> plateau_final(_size * _size);
+
+	using WriterType = itk::ImageFileWriter<UCharImageVector>;
+	auto writer = WriterType::New();
+
+
+	vtkNew<vtkImageFlip> flipFilter;
+	flipFilter->SetFilteredAxis(1);
+
+	int x{0}, y{ static_cast<int>(size_z[1]) *_size};
+	int m{ 0 };
+	for (int i{ 0 }; i < _size; ++i) {
+		for (int j{ 0 }; j < _size; ++j) {
+			if (i < _size - 1 || j < _size - 1)
+			{
+				start[2] = _plateau[i][j];
+				desiredRegion.SetIndex(start);
+				extractFilter->SetExtractionRegion(desiredRegion);
+				extractFilter->UpdateLargestPossibleRegion();
+				extractFilter->Update();
+				conversionFilter->SetInput(extractFilter->GetOutput());
+				conversionFilter->Update();
+				flipFilter->SetInputData(conversionFilter->GetOutput());
+				flipFilter->Update();
+				plateau_final[m]->SetInputData(flipFilter->GetOutput());
+				plateau_final[m]->SetPosition(x, y, 0);
+				plateau_final[m]->Update();
+				renderer->AddActor(plateau_final[m]);
+				std::string name{ std::to_string(m) };
+				name.append(".png");
+				writer->SetFileName(name);
+				writer->SetInput(extractFilter->GetOutput());
+				writer->Update();
+				x += size_z[0];
+				++m;
+			}
+		}
+		x = 0;
+		y -= size_z[1];
+	}
+
+	vtkNew<vtkImageActor> up;
+	conversionFilter->SetInput(plateau_image);
+	conversionFilter->Update();
+	flipFilter->Update();
+	up->SetInputData(flipFilter->GetOutput());
+	up->Update();
+	renderer->AddActor(up);
 
 	//Create Renderer Window
 	vtkNew<vtkRenderWindow> window;
@@ -259,6 +322,10 @@ void Plateau::initialise_affichageVTK()
 	//Creator interactor specific image
 	vtkNew<vtkInteractorStyleImage> styleInt;
 	interactor->SetInteractorStyle(styleInt);
+	vtkNew<Observer> observer;
+	observer->SetPlateau(this);
+	interactor->AddObserver(vtkCommand::KeyPressEvent, observer);
 	interactor->Initialize();
 	interactor->Start();
+
 }
