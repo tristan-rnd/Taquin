@@ -17,6 +17,9 @@
 #include <vtkInteractorStyleImage.h>
 #include <itkImageFileWriter.h>
 #include <vtkImageFlip.h>
+#include <vtkTextActor.h>
+#include <vtkTextProperty.h>
+#include <vtkCornerAnnotation.h>
 
 class Plateau {
 private:
@@ -25,14 +28,19 @@ private:
 	int _size;
 	int _posX, _posY;
 
-	std::vector<char> _chemin_solution;
+	std::vector<std::string> _chemin_solution;
 	int _nb_mouvement_to_solution{ 0 };
 
 	int _nb_rand;
 
 	bool _victoire{ false };
 
-
+	int _caseSizeX{}, _caseSizeY{};
+	vtkNew<vtkRenderer> _renderer;
+	vtkNew<vtkRenderWindow> _window;
+	vtkNew<vtkRenderWindowInteractor> _interactor;
+	std::vector<vtkSmartPointer<vtkImageActor>> _plateau_VTK;
+	std::vector<vtkSmartPointer<vtkCornerAnnotation>> _plateau_hint;
 
 public:
 
@@ -40,7 +48,7 @@ public:
 
 	void afficher();
 
-	bool bouger(char direction, bool affiche);
+	bool bouger(std::string direction, bool affiche);
 
 	void randomise();
 
@@ -48,5 +56,13 @@ public:
 
 	bool est_victorieux();
 
+	void initialise_PlateauITK2VTK();
+
 	void initialise_affichageVTK();
+
+	void Update();
+
+	void victoire();
+
+	std::vector<std::string> get_Solution();
 };
