@@ -3,8 +3,10 @@
 #include <iostream>
 #include <string>
 #include <random>
+#include <ctime>
 #include <itkImage.h>
 #include <itkImageFileReader.h>
+#include <itkImageFileWriter.h>
 #include <itkExtractImageFilter.h>
 #include <itkImageToVTKImageFilter.h>
 #include <itkImageRegionIteratorWithIndex.h>
@@ -15,11 +17,14 @@
 #include <vtkRenderWindow.h>
 #include <vtkRenderWindowInteractor.h>
 #include <vtkInteractorStyleImage.h>
-#include <itkImageFileWriter.h>
 #include <vtkImageFlip.h>
-#include <vtkTextActor.h>
+#include <vtkTextActor3D.h>
 #include <vtkTextProperty.h>
-#include <vtkCornerAnnotation.h>
+#include <vtkButtonWidget.h>
+#include <vtkTexturedButtonRepresentation2D.h>
+#include <vtkImageData.h>
+#include <vtkCamera.h>
+
 
 class Plateau {
 private:
@@ -34,13 +39,15 @@ private:
 	int _nb_rand;
 
 	bool _victoire{ false };
+	bool _hint{ false };
 
 	int _caseSizeX{}, _caseSizeY{};
-	vtkNew<vtkRenderer> _renderer;
-	vtkNew<vtkRenderWindow> _window;
-	vtkNew<vtkRenderWindowInteractor> _interactor;
+	vtkSmartPointer<vtkRenderer> _renderer = vtkSmartPointer<vtkRenderer>::New();
+	vtkSmartPointer<vtkRenderWindow> _window = vtkSmartPointer<vtkRenderWindow>::New();
+	vtkSmartPointer<vtkRenderWindowInteractor> _interactor = vtkSmartPointer<vtkRenderWindowInteractor>::New();
 	std::vector<vtkSmartPointer<vtkImageActor>> _plateau_VTK;
-	std::vector<vtkSmartPointer<vtkCornerAnnotation>> _plateau_hint;
+	std::vector<vtkSmartPointer<vtkTextActor3D>> _plateau_hint;
+	vtkCamera* _camera;
 
 public:
 
@@ -60,9 +67,11 @@ public:
 
 	void initialise_affichageVTK();
 
-	void Update();
+	void update();
 
 	void victoire();
+
+	void hint();
 
 	std::vector<std::string> get_Solution();
 };
