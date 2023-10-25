@@ -17,15 +17,20 @@ private:
 void Observer::Execute(vtkObject* caller, unsigned long, void*) {
 	auto* interactor{ vtkRenderWindowInteractor::SafeDownCast(caller) };
 	std::string key{ interactor->GetKeySym()};
+	char letter{ interactor->GetKeyCode()};
 	if (key == "Return")
 	{
 		_plateau->solution_from_randomise();
 	}
+	else if (letter == 'h')
+	{
+		std::cout << letter;
+		_plateau->hint();
+	}
 	else
 	{
 		_plateau->bouger(key, true);
-		_plateau->Update();
-		std::cout << key << '\n';
+		_plateau->update();
 	}
 	if (_plateau->est_victorieux())
 	{
@@ -100,7 +105,8 @@ bool Plateau::bouger(std::string direction, bool affiche)
 			_plateau[_posY][_posX] = _plateau[_posY][_posX + 1];
 			_posX += 1;
 			auto y = _plateau_VTK[_plateau[_posY][_posX]]->GetPosition()[1];
-			_plateau_VTK[_plateau[_posY][_posX]]->SetPosition((_posX-1) * _caseSizeX, y, 0);
+			_plateau_VTK[_plateau[_posY][_posX]]->SetPosition((_posX-1) * _caseSizeX, y,0);
+			_plateau_hint[_plateau[_posY][_posX]]->SetPosition((_posX - 1) * _caseSizeX, y, 20);
 			_plateau[_posY][_posX] = _size * _size - 1;
 			fait = true;
 			if (affiche) this->afficher();
@@ -118,8 +124,8 @@ bool Plateau::bouger(std::string direction, bool affiche)
 		{
 			_plateau[_posY][_posX] = _plateau[_posY - 1][_posX];
 			_posY += -1;
-			_plateau_VTK[_plateau[_posY][_posX]]->SetPosition(_posX * _caseSizeX, (_size - 1 - _posY) * _caseSizeY, 0);
-			_plateau_VTK[_plateau[_posY][_posX]]->Update();
+			_plateau_VTK[_plateau[_posY][_posX]]->SetPosition(_posX * _caseSizeX, (_size - 1 - _posY) * _caseSizeY,0);
+			_plateau_hint[_plateau[_posY][_posX]]->SetPosition(_posX * _caseSizeX, (_size - 1 - _posY) * _caseSizeY, 20);
 			_plateau[_posY][_posX] = _size * _size - 1;
 			fait = true;
 			this->afficher();
@@ -138,7 +144,8 @@ bool Plateau::bouger(std::string direction, bool affiche)
 			_plateau[_posY][_posX] = _plateau[_posY][_posX - 1];
 			_posX += -1;
 			auto y = _plateau_VTK[_plateau[_posY][_posX]]->GetPosition()[1];
-			_plateau_VTK[_plateau[_posY][_posX]]->SetPosition((_posX+1) * _caseSizeX, y, 0);
+			_plateau_VTK[_plateau[_posY][_posX]]->SetPosition((_posX+1) * _caseSizeX, y,0);
+			_plateau_hint[_plateau[_posY][_posX]]->SetPosition((_posX + 1) * _caseSizeX, y, 20);
 			_plateau[_posY][_posX] = _size * _size - 1;
 			fait = true;
 			this->afficher();
@@ -156,8 +163,8 @@ bool Plateau::bouger(std::string direction, bool affiche)
 		{
 			_plateau[_posY][_posX] = _plateau[_posY + 1][_posX];
 			_posY += 1;
-			_plateau_VTK[_plateau[_posY][_posX]]->SetPosition(_posX * _caseSizeX, (_size - 1 - _posY + 2) * _caseSizeY, 0);
-			_plateau_VTK[_plateau[_posY][_posX]]->Update();
+			_plateau_VTK[_plateau[_posY][_posX]]->SetPosition(_posX * _caseSizeX, (_size - 1 - _posY + 2) * _caseSizeY,0);
+			_plateau_hint[_plateau[_posY][_posX]]->SetPosition(_posX * _caseSizeX, (_size - 1 - _posY + 2) * _caseSizeY, 20);
 			_plateau[_posY][_posX] = _size * _size - 1;
 			fait = true;
 			this->afficher();
@@ -176,7 +183,7 @@ bool Plateau::bouger(std::string direction, bool affiche)
 /// </summary>
 void Plateau::randomise()
 {
-	std::default_random_engine generator;
+	std::default_random_engine generator{static_cast<unsigned int>(time(nullptr))};
 	std::uniform_int_distribution<int> distribution(0, 3);
 	int r{ 0 };
 
@@ -198,7 +205,7 @@ void Plateau::solution_from_randomise()
 	{
 		std::string dir = _chemin_solution[i];
 		bouger(dir, true);
-		Update();
+		update();
 	}
 }
 
@@ -286,7 +293,6 @@ void Plateau::initialise_PlateauITK2VTK()
 
 	//Filtre convertisseur ITK 2 VTK
 	using ConversionFilterType = itk::ImageToVTKImageFilter<UCharImageVector>;
-	auto conversionFilter{ ConversionFilterType::New() };
 
 	//Creation d'un writer temporaire pour debug
 	using WriterType = itk::ImageFileWriter<UCharImageVector>;
@@ -296,71 +302,126 @@ void Plateau::initialise_PlateauITK2VTK()
 
 	//Boucle pour parcourir l'image 3D pour associer chaque coupe à une case
 	//On ajoute chaque case dans un tableau d'acteurs et on exporte une image png
-	int x{ 0 }, y{ static_cast<int>(size_z[1]) * _size };
+
+	_window->AddRenderer(_renderer);
+	_window->SetSize(800, 800);
+	_renderer->SetBackground(.1, .2, .4);
+
+	int x{ 0 }, y{ _caseSizeY *_size };
 	int m{ 0 };
 	for (int i{ 0 }; i < _size; ++i) {
 		for (int j{ 0 }; j < _size; ++j) {
-			vtkNew<vtkImageActor> actor;
+			//Pour le slicer, on choisit quelle coupe z puis on extrait la coupe
 			start[2] = _plateau[i][j];
 			desiredRegion.SetIndex(start);
 			extractFilter->SetExtractionRegion(desiredRegion);
 			extractFilter->UpdateLargestPossibleRegion();
 			extractFilter->Update();
+			std::cout << extractFilter->GetOutput()->GetLargestPossibleRegion().GetSize()[0] << " et " << extractFilter->GetOutput()->GetLargestPossibleRegion().GetSize()[1] << " et " << extractFilter->GetOutput()->GetLargestPossibleRegion().GetSize()[2] << '\n';
+			//Filtre convertisseur ITK vers VTK
+			auto conversionFilter{ ConversionFilterType::New() };
 			conversionFilter->SetInput(extractFilter->GetOutput());
 			conversionFilter->Update();
-			vtkNew<vtkImageFlip> flipFilter;
+
+			//Filtre flip dans l'axe Y (image inversée sur VTK)
+			vtkSmartPointer<vtkImageFlip> flipFilter = vtkSmartPointer<vtkImageFlip>::New();
 			flipFilter->SetFilteredAxis(1);
 			flipFilter->SetInputData(conversionFilter->GetOutput());
 			flipFilter->Update();
+
+			////Filtre mapping 2D de l'image (éviter affichage 3D d'une image 2D)
+			//vtkSmartPointer<vtkImageMapper> mapper = vtkSmartPointer<vtkImageMapper>::New();
+			//mapper->SetInputConnection(flipFilter->GetOutputPort());
+			//mapper->SetColorWindow(255);
+			//mapper->SetColorLevel(127.5);
+			//mapper->Update();
+
+			std::cout << "Dimensions : " << flipFilter->GetOutput()->GetDimensions()[0] << " et " << flipFilter->GetOutput()->GetDimensions()[1] << " et " << flipFilter->GetOutput()->GetDimensions()[2] << '\n';
+
+			//Acteur 2D qui prend le mapper en entrée et stocké dans _plateau_VTK[_plateau[i][j]]
+			vtkSmartPointer<vtkImageActor> actor = vtkSmartPointer<vtkImageActor>::New();
 			actor->SetInputData(flipFilter->GetOutput());
-			actor->SetPosition(x, y, 0);
 			_plateau_VTK[_plateau[i][j]] = actor;
-			vtkNew<vtkTextActor> txtActor;
-			char k[2] = { 122};
+			_plateau_VTK[_plateau[i][j]]->SetPosition(x, y,0);
+			std::cout << "X = " << x << " et Y = " << y << '\n';
+			std::cout << "Pour l'acteur : " << _plateau_VTK[_plateau[i][j]] << '\n';
+			std::cout << _plateau_VTK[_plateau[i][j]]->GetSliceNumber() << '\n';
 
-			vtkNew<vtkCornerAnnotation> annot;
+			vtkSmartPointer<vtkTextActor3D> txtActor = vtkSmartPointer<vtkTextActor3D>::New();
+			std::string numb = std::to_string(_plateau[i][j]+1);
+			char const* numb_char = numb.c_str();
+			txtActor->SetInput(numb_char);
+			txtActor->SetPosition(x,y,_size*_size);
+			_plateau_hint[_plateau[i][j]] = txtActor;
 
-			annot->SetImageActor(actor);
-			annot->SetText(0, "aaaa");
-
-			_plateau_hint[_plateau[i][j]] = annot;
+			//Writer ITK de l'image (debug)
 			std::string name{ std::to_string(_plateau[i][j]) };
 			name.append(".png");
 			writer->SetFileName(name);
 			writer->SetInput(extractFilter->GetOutput());
 			writer->Update();
-			x += static_cast<int>(size_z[0]);
+
+			
+			//Indentation de la taille en x
+			x += _caseSizeX;
 			++m;
 		}
 		x = 0;
-		y -= static_cast<int>(size_z[1]);
+		y -= _caseSizeY;
 	}
+	
 }
 
 void Plateau::initialise_affichageVTK()
 {
-	_window->AddRenderer(_renderer);
-	_window->SetSize(800, 800);
 
-	_renderer->SetBackground(.1, .2, .4);
-	for (unsigned int i{ 0 }; i < _plateau_VTK.size(); i++)
-	{
-		if (_plateau[_posY][_posX] != i)
-		{
-			_plateau_VTK[i]->Update();
-			_renderer->AddActor(_plateau_VTK[i]);
-			_renderer->AddActor2D(_plateau_hint[i]);
-		}
-	}
+	
 	//Ajouter le renderer à la fenêtre
 
 	//Ajouter l'interactor à la fenêtre et place un observer sur cet interactor
 	_interactor->SetRenderWindow(_window);
-	auto style{ vtkInteractorStyleImage::New() };
+	vtkSmartPointer<vtkInteractorStyleImage> style = vtkSmartPointer<vtkInteractorStyleImage>::New();
 	_interactor->SetInteractorStyle(style);
 
-	vtkNew<Observer> observer;
+	/*vtkSmartPointer<vtkTexturedButtonRepresentation2D> buttonRepresentation = vtkSmartPointer<vtkTexturedButtonRepresentation2D>::New();
+	vtkSmartPointer<vtkImageData> texture1 = vtkSmartPointer<vtkImageData>::New();
+	texture1->SetDimensions(20, 20, 1);
+	texture1->AllocateScalars(VTK_UNSIGNED_CHAR, 3);
+	unsigned char color[3] = { 255, 0, 255 };
+	for (int y = 0; y < 19; y++)
+	{
+		for (int x = 0; x < 19; x++)
+		{
+			unsigned char* pixel = static_cast<unsigned char*>(texture1->GetScalarPointer(x, y, 0));
+			pixel = color;
+		}
+	}*/
+
+
+	//buttonRepresentation->SetNumberOfStates(1);
+	//buttonRepresentation->SetButtonTexture(0, texture1);
+	//vtkSmartPointer<vtkButtonWidget> buttonShuffle = vtkSmartPointer<vtkButtonWidget>::New();
+	//buttonShuffle->SetRepresentation(buttonRepresentation);
+	//buttonShuffle->SetInteractor(_interactor);
+	//this->update();
+	//buttonShuffle->On();
+
+	std::cout << "Le taille du rendu = " << _renderer->GetSize()[0] << " et " << _renderer->GetSize()[1] << '\n';
+
+	for (unsigned int i{ 0 }; i < _plateau_VTK.size(); i++)
+	{
+		if (_plateau[_posY][_posX] != i)
+		{
+			_renderer->AddActor(_plateau_VTK[i]);
+		}
+	}
+
+	_renderer->ResetCamera();
+	_renderer->GetActiveCamera()->ParallelProjectionOn();
+
+	vtkSmartPointer<Observer> observer = vtkSmartPointer<Observer>::New();
 	observer->SetPlateau(this);
+	_interactor->RemoveAllObservers();
 	_interactor->AddObserver(vtkCommand::KeyPressEvent, observer);
 	_interactor->Initialize();
 	_interactor->Start();
@@ -370,16 +431,17 @@ void Plateau::victoire()
 {
 	_interactor->RemoveAllObservers();
 
-	vtkNew<vtkTextActor> textActor;
+	vtkSmartPointer<vtkTextActor3D> textActor = vtkSmartPointer<vtkTextActor3D>::New();
 	textActor->SetInput("Victoire ! Felicitation !");
-	textActor->SetPosition2(-10, -10);
-	textActor->GetTextProperty()->SetFontSize(34);
+	textActor->SetPosition(10,10,0);
+	textActor->GetTextProperty()->SetFontSize(20);
 	textActor->GetTextProperty()->SetColor(0.77,0.05,0.255);
-	_renderer->AddActor2D(textActor);
-	Update();
+	_renderer->AddActor(textActor);
+	_renderer->AddActor(_plateau_VTK[_size*_size-1]);
+	update();
 }
 
-void Plateau::Update()
+void Plateau::update()
 {
 	_window->Render();
 }
@@ -387,4 +449,31 @@ void Plateau::Update()
 std::vector<std::string> Plateau::get_Solution()
 {
 	return _chemin_solution;
+}
+
+void Plateau::hint()
+{
+	if (!_hint)
+	{
+		for (unsigned int i{ 0 }; i < _plateau_hint.size(); i++)
+		{
+			if (_plateau[_posY][_posX] != i)
+			{
+				_renderer->AddActor(_plateau_hint[i]);
+				_hint = true;
+			}
+		}
+	}
+	else
+	{
+		for (unsigned int i{ 0 }; i < _plateau_hint.size(); i++)
+		{
+			if (_plateau[_posY][_posX] != i)
+			{
+				_renderer->RemoveActor(_plateau_hint[i]);
+				_hint = false;
+			}
+		}
+	}
+	update();
 }
