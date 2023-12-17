@@ -9,8 +9,6 @@ set(SRCS
 set(HEADERS
     Plateau.h
     )
-
-
 # Path for CMake to find dumpbin.exe
 LIST(APPEND CMAKE_PROGRAM_PATH  "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.37.32822/bin/Hostx64/x64")
 
@@ -18,6 +16,7 @@ find_package( ITK REQUIRED )
 include( ${ITK_USE_FILE} )
 
 find_package(VTK REQUIRED)
+include_directories("K:/lib-x64-msvc2022/ITK-5.3.0/Modules/Bridge/VtkGlue/include")
 
 if (NOT VTK_FOUND)
   message("Skipping ${PROJECT_NAME}: ${VTK_NOT_FOUND_MESSAGE}")
@@ -29,7 +28,7 @@ if (VTK_VERSION VERSION_LESS "8.90.0")
   # old system
   include(${VTK_USE_FILE})
   add_executable(${PROJECT_NAME} MACOSX_BUNDLE ${PROJECT_NAME}.cpp ${SRCS} ${HEADERS})
-  target_link_libraries(${PROJECT_NAME} PRIVATE ${VTK_LIBRARIES} ${ITK_LIBRARIES} )
+  target_link_libraries(${PROJECT_NAME} PRIVATE ${VTK_LIBRARIES} ${ITK_LIBRARIES})
 else ()
   # include all components
   add_executable(${PROJECT_NAME} MACOSX_BUNDLE ${PROJECT_NAME}.cpp ${SRCS} ${HEADERS})
